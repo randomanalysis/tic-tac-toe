@@ -10,11 +10,11 @@ const victoryScenarios = [
 ];
 
 
-function Player (name, token, playerNum, ai) {
+function Player (name, token, playerNum) {
     name = name;
     token = token;
     playerNum = playerNum;
-    ai = ai;
+    let ai = false;
     let score = 0;
 
     const getName = () => name;
@@ -27,6 +27,10 @@ function Player (name, token, playerNum, ai) {
         score = score + 1;
     }
 
+    const setAI = (newAI) => {
+        ai = newAI;
+    }
+
     return {
         getName,
         getToken,
@@ -34,6 +38,7 @@ function Player (name, token, playerNum, ai) {
         getScore,
         addPoint,
         getAI,
+        setAI,
     }
 };
 
@@ -54,9 +59,26 @@ const GameBoard = (() => {
         }
     }
 
+    const checkForWinner = (token) => {
+        return victoryScenarios.some((combination) => {
+            return combination.every((i) => {
+              return board[i].getValue() === token;
+            });
+          });
+    }
+
+    const checkForTie = () => {
+        return board.every((cell) => {
+            return cell.getValue() == "X" || cell.getValue() == "0";
+        });
+    }
+
     return {
         getBoard,
         resetBoard,
+        checkForWinner,
+        checkForTie,
+
     };
 })();
 
@@ -66,22 +88,113 @@ function Cell() {
     const addPlayer = (player) => {
         value = player.getToken()
     }
+
+    const addToken = (token) => {
+        value = token;
+    }
+
+    const removeToken = () => {
+        value = "";
+    }
         
     const getValue = () => value
 
     return {
         addPlayer,
         getValue,
+        addToken,
+        removeToken,
     };
   };
 
-  
+const ComputerAI = (()=> {
 
+    const board = GameBoard.getBoard();
+
+    const evaluate = () => {
+        
+        if(GameBoard.checkForWinner("X")){
+            return 10;
+        } else if(GameBoard.checkForTie()) {
+            return 0;
+        } else if(GameBoard.checkForWinner("0")) {
+            return -10;
+        }
+    }
+
+    const miniMax = (board, depth, isMax) => {
+        let score = evaluate();
+
+        if(score == 10) return score;
+
+        if(score == -10) return score;
+
+        if(score == 0) return score;
+
+        if(isMax) {
+
+            let best = -1000;
+
+            for(let i = 0; i < board.length; i++) {
+
+                if(board[i].getValue() == "") {
+                    board[i].addToken("X");
+                    best = Math.max(best, miniMax(board, depth +1 , !isMax ));
+                    board[i].removeToken();
+                }
+            }
+
+            return best;
+
+        } else {
+
+            let best = 1000;
+
+            for(let i = 0; i < board.length; i++) {
+
+                if(board[i].getValue() == "") {
+                    board[i].addToken("0");
+                    best = Math.min(best, miniMax(board, depth +1 , !isMax ));
+                    board[i].removeToken();
+                }
+            }
+
+            return best;
+        }
+
+    }
+
+    const findBestMove = () => {
+        let bestScore = -1000;
+        let moveIndex = -1;
+
+        for(let i = 0; i < board.length; i++) {
+
+            if(board[i].getValue() == "") {
+                board[i].addToken("X");
+                let moveScore = miniMax(board, 0, false);
+                board[i].removeToken();
+
+                if(moveScore > bestScore) {
+                    moveIndex = i;
+                    bestScore = moveScore;
+                }
+            }
+        }
+
+        return moveIndex;
+    }
+
+
+    return {
+        findBestMove,
+    };
+})();
 
 const gameController = (() => {
 
-    const playerOne = Player("Player One", "0", "one", false)
-    const playerTwo = Player("Player Two", "X", "two", true)
+    const playerOne = Player("Player One", "0", "one")
+    const playerTwo = Player("Player Two", "X", "two")
 
     const players = [playerOne, playerTwo];
 
@@ -110,13 +223,13 @@ const gameController = (() => {
         cell.addPlayer(activePlayer)
         const board = GameBoard.getBoard();
 
-        if (checkForWinner(activePlayer, board)) {
+        if (GameBoard.checkForWinner(activePlayer.getToken())) {
             gameOver = true;
             activePlayer.addPoint();
             return
         }
 
-        if (checkForTie(board)) {
+        if (GameBoard.checkForTie(board)) {
             tie = true;
             gameOver = true;
             return;
@@ -126,33 +239,24 @@ const gameController = (() => {
 
         if (getActivePlayer().getAI()){
 
-            const board = GameBoard.getBoard();
-            
-            const emtpyCells = board.filter(cell => cell.getValue() == "");
+            if(rollDice(6) ==  6) {
 
-            randCell = randomIntFromInterval(0, emtpyCells.length  -1);
+                const board = GameBoard.getBoard();
+                
+                const emtpyCells = board.filter(cell => cell.getValue() == "");
 
-            cell = emtpyCells[randCell];
-            playRound(cell);
+                let randCell = randomIntFromInterval(0, emtpyCells.length  -1);
+
+                cell = emtpyCells[randCell];
+                playRound(cell);
+
+            } else {
+                let cellPicked = ComputerAI.findBestMove();
+                playRound(board[cellPicked]);
+            }
 
         } 
         
-    }
-
-    const checkForWinner = (activePlayer, board) => {
-        const token = activePlayer.getToken();
-
-        return victoryScenarios.some((combination) => {
-            return combination.every((i) => {
-              return board[i].getValue() === token;
-            });
-          });
-    }
-
-    const checkForTie = (board) => {
-        return board.every((cell) => {
-            return cell.getValue() == "X" || cell.getValue() == "0";
-        });
     }
 
     const resetGame = () => {
@@ -160,6 +264,11 @@ const gameController = (() => {
         gameOver = false;
         activePlayer = players[0];
         resultText = "";
+    }
+
+    const setAI = (anAI) => {
+        players[1].setAI(anAI);
+
     }
 
     return {
@@ -170,6 +279,7 @@ const gameController = (() => {
         getGameOver,
         getPlayerOne,
         getPlayerTwo,
+        setAI,
     };
 })();
 
@@ -274,6 +384,11 @@ const displayConroller = (() => {
 
     }
 
+    function setAI(anAI) {
+        gameController.setAI(anAI);
+    }
+
+
     // Add event listener for the board
     function clickHandlerBoard(e) {
         const board = GameBoard.getBoard();
@@ -298,6 +413,21 @@ const displayConroller = (() => {
     const newGameBtn = document.querySelector('.new-game-btn');
     newGameBtn.addEventListener('click', newGame);
 
+    const opponentTypeDisplay = document.querySelector('.player-choice-current h4')
+
+
+    const humanBtn = document.getElementById("player-choice-human");
+    humanBtn.addEventListener('click', function() {
+        setAI(false);
+        opponentTypeDisplay.textContent = "Human";
+    });
+
+    const aiBtn = document.getElementById("player-choice-ai");
+    aiBtn.addEventListener('click', function() {
+        setAI(true);
+        opponentTypeDisplay.textContent = "Robot";
+    });
+
     // Initial display
     updateDisplay();
 
@@ -308,3 +438,7 @@ displayConroller;
 function randomIntFromInterval(min, max) { // min and max included 
     return Math.floor(Math.random() * (max - min + 1) + min)
   }
+
+function rollDice(max) {
+return 1 + Math.floor(Math.random() * max);
+}
