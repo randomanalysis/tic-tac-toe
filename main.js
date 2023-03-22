@@ -113,12 +113,12 @@ const ComputerAI = (()=> {
 
     const evaluate = () => {
         
-        if(GameBoard.checkForWinner("X")){
-            return 10;
+        if(GameBoard.checkForWinner("0")){
+            return -10;
         } else if(GameBoard.checkForTie()) {
             return 0;
-        } else if(GameBoard.checkForWinner("0")) {
-            return -10;
+        } else if(GameBoard.checkForWinner("X")) {
+            return 10;
         }
     }
 
@@ -236,8 +236,13 @@ const gameController = (() => {
         }
 
         nextPlayerTurn();
+        
+    }
 
+    const playAiRound = () => {
         if (getActivePlayer().getAI()){
+
+            const board = GameBoard.getBoard();
 
             if(rollDice(6) ==  6) {
 
@@ -253,10 +258,10 @@ const gameController = (() => {
             } else {
                 let cellPicked = ComputerAI.findBestMove();
                 playRound(board[cellPicked]);
-            }
+            };
 
-        } 
-        
+        }
+
     }
 
     const resetGame = () => {
@@ -273,6 +278,7 @@ const gameController = (() => {
 
     return {
         playRound,
+        playAiRound,
         getActivePlayer,
         resetGame,
         getTie,
@@ -400,10 +406,24 @@ const displayConroller = (() => {
         
         gameController.playRound(selectedCell);
         if (!gameController.getGameOver()) {
-            //const activePlayer = gameController.getActivePlayer();
             updateDisplay();
+            if(gameController.getActivePlayer().getAI) {
+
+                setTimeout(playAsAi, 600)
+
+                function playAsAi() {
+                    gameController.playAiRound();
+                    if (!gameController.getGameOver()) {
+
+                        updateDisplay();
+                    } else {
+
+                        endGameDisplay();
+                        }
+                }
+            }
         } else {
-            //const activePlayer = gameController.getActivePlayer();
+
             endGameDisplay();
             }
     }
